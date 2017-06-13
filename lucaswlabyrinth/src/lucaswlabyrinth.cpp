@@ -17,18 +17,17 @@ class Labyrinth
 
   float x_;
   float y_;
-  // only 256 ways to aim
-  uint16_t dir_;
-  uint16_t angle_per_column_;
-  uint16_t forty_five_deg_;
+  float dir_;
+  float angle_per_column_;
+  float forty_five_deg_;
 public:
   // TODO(lucasw) later have image subscribers for the texture and map
   Labyrinth(const std::string floor_name, const std::string wall_name) :
     x_(128),
     y_(128),
-    dir_(16384),
-    angle_per_column_(100),
-    forty_five_deg_(8192)
+    dir_(0.0),
+    angle_per_column_(60 / 180.0 * M_PI / 320.0),
+    forty_five_deg_(45.0 / 180.0 * M_PI)
   {
     wall_texture_ = cv::imread(wall_name, CV_LOAD_IMAGE_COLOR);
     if (wall_texture_.empty())
@@ -117,12 +116,19 @@ public:
     return output_.rows / dist * 4.0;
   }
 
+  /////////////////////////////////////////////////////////////
   bool draw()
   {
+    const float scale = 4.0;
+    cv::Mat map_bw, map;
+    cv::resize(floor_map_, map_bw, cv::Size(), scale, scale, cv::INTER_NEAREST);
+    cv::cvtColor(map_bw, map, CV_GRAY2RGB);
+    cv::circle(map, cv::Point(x_ * scale, y_ * scale), 3, cv::Scalar(255, 0, 0));
+
     output_ = cv::Scalar(0);
     const size_t half_width = output_.cols / 2;
     const size_t half_height = output_.rows / 2;
-    uint16_t cur_dir = dir_ - half_width * angle_per_column_;
+    float cur_dir = dir_ - half_width * angle_per_column_;
     for (size_t i = 0; i < output_.cols; ++i)
     {
       cur_dir += angle_per_column_;
@@ -138,10 +144,15 @@ public:
 */
 
       // TODO(lucasw) get rid of floats later
-      float angle = float(cur_dir) / float(1 << 16) * 2.0 * M_PI;
+      float angle = cur_dir;  // float(cur_dir) / float(1 << 16) * 2.0 * M_PI;
+      if (angle > M_PI)
+        angle -= 2.0 * M_PI;
+      else if (angle < -M_PI)
+        angle += 2.0 * M_PI;
       float dx = cos(angle);
       float dy = sin(angle);
 
+      /*
       if ((cur_dir < forty_five_deg_) || (cur_dir > forty_five_deg_ * 7) ||
           ((cur_dir > forty_five_deg_ * 3) && (cur_dir < forty_five_deg_ * 5)))
       {
@@ -153,6 +164,14 @@ public:
         dx = 1.0 / dy * dx;
         dy = 1.0;
       }
+      */
+
+      // draw a 'sky'
+      cv::Scalar sky_color((M_PI + angle) / M_PI * 128.0, 0, 200);
+      cv::line(output_,
+          cv::Point(i, 0),
+          cv::Point(i, output_.rows / 2),
+          sky_color);
 
       float dist;
       float texture_x;
@@ -162,24 +181,30 @@ public:
         cv::line(output_,
             cv::Point(i, half_height - height / 2),
             cv::Point(i, half_height + height / 2),
-            cv::Scalar(128, 128, texture_x));
+            cv::Scalar(256 - dist * 4, 256 - dist, texture_x));
+      }
+
+      // draw the boundaries of where the camera can see
+      if ((i == 0) || (i == output_.cols - 1))
+      {
+        ROS_INFO_STREAM(sky_color);
+        cv::line(map,
+            cv::Point(x_ * scale, y_ * scale),
+            cv::Point(x_ * scale + dx * scale * 100, y_ * scale + dy * scale * 100),
+            sky_color);
       }
     }
 
     cv::imshow("output", output_);
-    const float scale = 4.0;
-    cv::Mat map_bw, map;
-    cv::resize(floor_map_, map_bw, cv::Size(), scale, scale, cv::INTER_NEAREST);
-    cv::cvtColor(map_bw, map, CV_GRAY2RGB);
-    cv::circle(map, cv::Point(x_ * scale, y_ * scale), 3, cv::Scalar(255, 0, 0));
 
-    const float angle = float(dir_) / float(1 << 16) * 2.0 * M_PI;
+    const float angle = dir_;  // float(dir_) / float(1 << 16) * 2.0 * M_PI;
     const float dx = cos(angle);
     const float dy = sin(angle);
 
+    // show the direction the player is facing
     cv::line(map,
         cv::Point(x_ * scale, y_ * scale),
-        cv::Point(x_ * scale + dx * scale * 3, y_ * scale + dy * scale * 3),
+        cv::Point(x_ * scale + dx * scale * 20, y_ * scale + dy * scale * 20),
         cv::Scalar(255, 0, 0));
 
     cv::imshow("map", map);
@@ -206,10 +231,14 @@ public:
       y_ += dx;
     }
     else if (key == 'q')
-      dir_ -= angle_per_column_ << 2;
+      dir_ -= angle_per_column_ * 4;
     else if (key == 'e')
-      dir_ += angle_per_column_ << 2;
+      dir_ += angle_per_column_ * 4;
 
+    if (dir_ < 0)
+      dir_ += 2.0 * M_PI;
+    else if (dir_ > 2.0 * M_PI)
+      dir_ -= 2.0 * M_PI;
     ROS_DEBUG_STREAM(x_ << " " << y_ << " " << angle * 180 / M_PI);
   }
 };

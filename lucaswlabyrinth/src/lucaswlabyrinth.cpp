@@ -72,6 +72,37 @@ public:
         return false;
       if (size_t(x + dx) >= floor_map_.cols)
         return false;
+
+      // TODO(lucasw) get the intersection with a right or left hand
+      // vertical grid line and the horizontal up or down grid line,
+      // then find closest one.
+
+      //if (dx > 0)
+      //{
+        // right hand vertical line intersection
+
+      float edx, edy, wdx, wdy, sdx, sdy, ndx, ndy;
+      if (dx > 0)
+      {
+        edx = float(size_t(x) + 1) - x;
+        edy = edx / dx * dy;
+      }
+      if (dx < 0)
+      {
+        wdx = float(size_t(x)) - x;
+        wdy = wdx / dx * dy;
+      }
+      if (dy > 0)
+      {
+        sdy = float(size_t(y) + 1) - y;
+        sdx = sdy / dy * dx;
+      }
+      if (dy < 0)
+      {
+        ndy = float(size_t(y)) - y;
+        ndx = ndx / dy * dx;
+      }
+
       // test the grid location (y and x are actually the center of a grid cell)
       if (floor_map_.at<uint8_t>(y + dy, x + dx) > 0)
       {

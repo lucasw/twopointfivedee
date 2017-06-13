@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<package>
+
+  <name>lucaswlabyrinth</name>
+  <version>0.0.0</version>
+  <description>Crude 2.5D hallway simulator</description>
+
+  <maintainer email="wsacul@gmail.com">Lucas Walter</maintainer>
+  <license>GPLV3</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>cv_bridge</build_depend>
+  <build_depend>dynamic_reconfigure</build_depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>roslint</build_depend>
+  <build_depend>rospy</build_depend>
+  <run_depend>cv_bridge</run_depend>
+  <run_depend>dynamic_reconfigure</run_depend>
+  <run_depend>roscpp</run_depend>
+  <run_depend>roslint</run_depend>
+  <run_depend>rospy</run_depend>
+
+  <export>
+
+  </export>
+
+</package>

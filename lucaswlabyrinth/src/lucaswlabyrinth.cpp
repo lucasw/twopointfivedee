@@ -30,13 +30,13 @@ public:
     angle_per_column_(100),
     forty_five_deg_(8192)
   {
-    wall_texture_ = cv::imread(wall_name);
+    wall_texture_ = cv::imread(wall_name, CV_LOAD_IMAGE_COLOR);
     if (wall_texture_.empty())
     {
       ROS_ERROR_STREAM("couldn't load " << wall_name);
       return;
     }
-    floor_map_ = cv::imread(floor_name, CV_LOAD_IMAGE_COLOR);
+    floor_map_ = cv::imread(floor_name, CV_LOAD_IMAGE_GRAYSCALE);
     if (floor_map_.empty())
     {
       ROS_ERROR_STREAM("couldn't load " << floor_name);
@@ -167,10 +167,23 @@ public:
     }
 
     cv::imshow("output", output_);
+    const float scale = 4.0;
+    cv::Mat map_bw, map;
+    cv::resize(floor_map_, map_bw, cv::Size(), scale, scale, cv::INTER_NEAREST);
+    cv::cvtColor(map_bw, map, CV_GRAY2RGB);
+    cv::circle(map, cv::Point(x_ * scale, y_ * scale), 3, cv::Scalar(255, 0, 0));
 
     const float angle = float(dir_) / float(1 << 16) * 2.0 * M_PI;
     const float dx = cos(angle);
     const float dy = sin(angle);
+
+    cv::line(map,
+        cv::Point(x_ * scale, y_ * scale),
+        cv::Point(x_ * scale + dx * scale * 3, y_ * scale + dy * scale * 3),
+        cv::Scalar(255, 0, 0));
+
+    cv::imshow("map", map);
+
     const int key = cv::waitKey(50);
     if (key == 'w')
     {
@@ -184,20 +197,20 @@ public:
     }
     else if (key == 'a')
     {
-      x_ -= dy;
+      x_ += dy;
       y_ -= dx;
     }
     else if (key == 'd')
     {
-      x_ += dy;
+      x_ -= dy;
       y_ += dx;
     }
     else if (key == 'q')
-      dir_ += angle_per_column_ << 2;
-    else if (key == 'e')
       dir_ -= angle_per_column_ << 2;
+    else if (key == 'e')
+      dir_ += angle_per_column_ << 2;
 
-    ROS_INFO_STREAM(x_ << " " << y_ << " " << angle * 180 / M_PI);
+    ROS_DEBUG_STREAM(x_ << " " << y_ << " " << angle * 180 / M_PI);
   }
 };
 

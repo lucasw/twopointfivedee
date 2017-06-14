@@ -57,86 +57,96 @@ public:
   }
 
   // return the first map grid location that the ray intersects
-  bool getIntersection(float x, float y,
+  bool getIntersection(const float sx, const float sy,
       const float dx, const float dy, float& dist, float& texture_x)
   {
-    // x += 0.5;
-    // y += 0.5;
+    float x = sx;
+    float y = sy;
     dist = 0;
-    const float inc_dist = std::sqrt(dx * dx + dy * dy);
+
+    // TODO(lucasw) redefine in terms of max map size
+    const float EPSILON = 0.0001;
 
     const int max_range = 328;
     for (size_t i = 0; i < max_range; ++i)
     {
-      if (size_t(y + dy) >= floor_map_.rows)
-        return false;
-      if (size_t(x + dx) >= floor_map_.cols)
-        return false;
-
       // TODO(lucasw) get the intersection with a right or left hand
       // vertical grid line and the horizontal up or down grid line,
       // then find closest one.
 
-      //if (dx > 0)
-      //{
-        // right hand vertical line intersection
-
-      float edx, edy, wdx, wdy, sdx, sdy, ndx, ndy;
-      if (dx > 0)
+      float edx = 0;
+      float edy = 0;
+      if (dx > EPSILON)
       {
-        edx = float(size_t(x) + 1) - x;
+        // right hand vertical line intersection
+        edx = float(size_t(x)) + 1.0 - x + EPSILON;
         edy = edx / dx * dy;
       }
-      if (dx < 0)
+      else if (dx < -EPSILON)
       {
-        wdx = float(size_t(x)) - x;
-        wdy = wdx / dx * dy;
+        edx = x - float(size_t(x)) - EPSILON;
+        edy = edx / dx * dy;
       }
-      if (dy > 0)
+      float ndx = 0;
+      float ndy = 0;
+      if (dy > EPSILON)
       {
-        sdy = float(size_t(y) + 1) - y;
-        sdx = sdy / dy * dx;
+        // right hand vertical line intersection
+        ndy = float(size_t(y)) + 1.0 - y + EPSILON;
+        ndx = ndy / dy * dx;
       }
-      if (dy < 0)
+      else if (dy < -EPSILON)
       {
-        ndy = float(size_t(y)) - y;
-        ndx = ndx / dy * dx;
+        ndy = y - float(size_t(y)) - EPSILON;
+        ndx = ndy / dy * dx;
       }
+
+      float dx2, dy2;
+      // which coord to use for the wall texture
+      bool use_x_not_y;
+      // is edx the nearest intersection (or ndx has no intersection at all)
+      if ((edx != 0) && ((std::abs(edx) <= std::abs(ndx)) ||
+          (ndx == 0)))
+      {
+        dx2 = edx;
+        dy2 = edy;
+        use_x_not_y = false;
+      }
+      else if ((ndy != 0) && ((std::abs(ndy) <= std::abs(edy)) ||
+          (edy == 0)))
+      {
+        dx2 = ndx;
+        dy2 = ndy;
+        use_x_not_y = true;
+      }
+      else
+      {
+        ROS_ERROR_STREAM("bad intersection " << x << " " << y << ", " << dx << " " << dy);
+        ROS_ERROR_STREAM("e " << edx << " " << edy << ", n " << ndx << " " << ndy);
+        return false;
+      }
+
+      // TODO(lucasw) will this gaurantee x + dx2 or y is going to be
+      // in right grid cell, or could it fall a little short?
+      x += dx2;
+      y += dy2;
+      if (size_t(y) >= floor_map_.rows)
+        return false;
+      if (size_t(x) >= floor_map_.cols)
+        return false;
 
       // test the grid location (y and x are actually the center of a grid cell)
-      if (floor_map_.at<uint8_t>(y + dy, x + dx) > 0)
+      if (floor_map_.at<uint8_t>(y, x) > 0)
       {
-        float fr = 0.0;
-        const size_t x1 = size_t(x);
-        const size_t x2 = size_t(x + dx);
-        const size_t y1 = size_t(y);
-        const size_t y2 = size_t(y + dy);
-        if ((x1 != x2) && (y1 == y2))
-        {
-          fr = std::abs((float(x2) - x) / dx);
-          texture_x = y + dy * fr - y1;
-        }
-        else if ((x1 == x2) && (y1 != y2))
-        {
-          fr = std::abs((float(y2) - y) / dy);
-          texture_x = x + dx * fr - x1;
-        }
+        dist = std::sqrt((y - sy) * (y - sy) + (x - sx) * (x - sx));
+        if (use_x_not_y)
+          texture_x = x - size_t(x);
         else
-        {
-          // crossed a boundary in both x and y
-
-        }
-        // x += x * fr;
-        // y += y * fr;
-        dist += inc_dist * fr;
-        // if (std::abs(dx) > std::abs(dy))
+          texture_x = y - size_t(y);
         return true;
       }
       // TODO(lucasw) this approach is going to miss some
       // intersections near edges
-      x += dx;
-      y += dy;
-      dist += inc_dist;
     }
 
     return false;
@@ -212,13 +222,13 @@ public:
         cv::line(output_,
             cv::Point(i, half_height - height / 2),
             cv::Point(i, half_height + height / 2),
-            cv::Scalar(256 - dist * 4, 256 - dist, texture_x));
+            cv::Scalar(256 - dist * 4, 256 - dist, 255.0 * texture_x));
       }
 
       // draw the boundaries of where the camera can see
       if ((i == 0) || (i == output_.cols - 1))
       {
-        ROS_INFO_STREAM(sky_color);
+        // ROS_INFO_STREAM(sky_color);
         cv::line(map,
             cv::Point(x_ * scale, y_ * scale),
             cv::Point(x_ * scale + dx * scale * 100, y_ * scale + dy * scale * 100),

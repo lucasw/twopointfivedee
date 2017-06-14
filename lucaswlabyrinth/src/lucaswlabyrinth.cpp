@@ -140,9 +140,9 @@ public:
       {
         dist = std::sqrt((y - sy) * (y - sy) + (x - sx) * (x - sx));
         if (use_x_not_y)
-          texture_x = x - size_t(x);
+          texture_x = (x - ((size_t(x) / 4) * 4.0)) / 4.0;
         else
-          texture_x = y - size_t(y);
+          texture_x = (y - ((size_t(y) / 4) * 4.0)) / 4.0;
         return true;
       }
       // TODO(lucasw) this approach is going to miss some
@@ -219,10 +219,14 @@ public:
       if (getIntersection(x_, y_, dx, dy, dist, texture_x))
       {
         size_t height = getApparentHeight(dist);
-        cv::line(output_,
-            cv::Point(i, half_height - height / 2),
-            cv::Point(i, half_height + height / 2),
-            cv::Scalar(256 - dist * 4, 256 - dist, 255.0 * texture_x));
+        size_t tex_x = texture_x * wall_texture_.cols;
+        tex_x %= wall_texture_.cols;
+        for (size_t y = half_height - height / 2; y < half_height + height / 2; ++y)
+        {
+          size_t tex_y = float(y - (half_height - height / 2)) / float(height) * output_.rows;
+          tex_y %= wall_texture_.rows;
+          output_.at<cv::Vec3b>(y, i) = wall_texture_.at<cv::Vec3b>(tex_y, tex_x);
+        }
       }
 
       // draw the boundaries of where the camera can see
@@ -249,32 +253,55 @@ public:
         cv::Scalar(255, 0, 0));
 
     cv::imshow("map", map);
-
     const int key = cv::waitKey(50);
+
+    float mx = 0;
+    float my = 0;
     if (key == 'w')
     {
-      x_ += dx;
-      y_ += dy;
+      mx = dx;
+      my = dy;
     }
     else if (key == 's')
     {
-      x_ -= dx;
-      y_ -= dy;
+      mx = -dx;
+      my = -dy;
     }
     else if (key == 'a')
     {
-      x_ += dy;
-      y_ -= dx;
+      mx = dy;
+      my = -dx;
     }
     else if (key == 'd')
     {
-      x_ -= dy;
-      y_ += dx;
+      mx = -dy;
+      my = dx;
     }
     else if (key == 'q')
-      dir_ -= angle_per_column_ * 4;
+      dir_ -= angle_per_column_ * 10.0;
     else if (key == 'e')
-      dir_ += angle_per_column_ * 4;
+      dir_ += angle_per_column_ * 10.0;
+
+    float vel = 0.25;
+    float dist, texture_x;
+    if ((mx != 0) || (my != 0))
+    {
+      if (getIntersection(x_, y_, mx, dy, dist, texture_x))
+      {
+        ROS_INFO_STREAM(dist);
+
+        cv::line(map,
+            cv::Point(x_ * scale, y_ * scale),
+            cv::Point(x_ * scale + dx * dist * scale * 20,
+                      y_ * scale + dy * dist * scale * 20),
+            cv::Scalar(0, 0, 255));
+
+        if (dist < 5.0)
+          vel = -(5.0 - dist);
+      }
+      x_ += mx * vel;
+      y_ += my * vel;
+    }
 
     if (dir_ < 0)
       dir_ += 2.0 * M_PI;

@@ -84,7 +84,7 @@ public:
       }
       else if (dx < -EPSILON)
       {
-        edx = x - float(size_t(x)) - EPSILON;
+        edx = float(size_t(x)) - x - EPSILON;
         edy = edx / dx * dy;
       }
       float ndx = 0;
@@ -97,7 +97,7 @@ public:
       }
       else if (dy < -EPSILON)
       {
-        ndy = y - float(size_t(y)) - EPSILON;
+        ndy = float(size_t(y)) - y - EPSILON;
         ndx = ndy / dy * dx;
       }
 

@@ -12,6 +12,8 @@ roslint_cpp()
 
 catkin_package()
 
+find_package(OpenCV REQUIRED)
+
 include_directories(
   ${catkin_INCLUDE_DIRS}
 )
@@ -20,4 +22,5 @@ add_executable(lucaswlabyrinth src/lucaswlabyrinth.cpp)
 
 target_link_libraries(lucaswlabyrinth
   ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
 )
